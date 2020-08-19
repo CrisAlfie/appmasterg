@@ -8,18 +8,12 @@ ini_set('display_errors', TRUE);
 ini_set('display_startup_errors', TRUE);
 
 if($_SERVER['REQUEST_METHOD'] == 'GET') {
-    echo "this is a get request\n";
-    echo $_GET['key']." is the key\n";
-    echo $_GET['shared_secred']." shhhhhhh\n\n";
+    echo "Esta es una solicitud GET sin parametros, por favor utilice el metodo PUT para generar la autenticacion inicial.\n";
+
 } elseif($_SERVER['REQUEST_METHOD'] == 'PUT') {
-    echo "Verificando datos...\n";
     http_response_code(416);
     //var_dump(http_response_code(416));
     parse_str(file_get_contents("php://input"),$post_vars);
-
-	$user = "bross";
-	$first = "Bob";
-	$last = "Ross";
 
 	$file = "llavesT.txt";
 	$jsonData = json_decode(file_get_contents($file), true);
@@ -28,6 +22,8 @@ if($_SERVER['REQUEST_METHOD'] == 'GET') {
 			if($i==$post_vars['key']){
 				http_response_code(403);
 				echo "Llave en uso, por favor verificar"."\n";
+				$hasMac = $row["signature"];
+				header('Signature: '.$hasMac);
 			}
 		}
 		if(http_response_code()==416){
@@ -45,24 +41,25 @@ if($_SERVER['REQUEST_METHOD'] == 'GET') {
 				foreach ($_GET as $name => $value) { 
 					$resArray[$name] = $value;
 				}
-			     //some parameters are set
 				//var_dump($_GET);
 			}
 
 			foreach ($post_vars as $name => $value) { 
 				$resArray[$name] = $value;
-				//echo "$name: $value <br>"."\n";
 			}
 			natsort($resArray);
 			foreach ($resArray as $name => $value) {
 				$string = $string.$name.";".$value.";";
 			}
-			//var_dump($resArray);
-			echo $string."\n";
+			http_response_code(204);
 			$hasMac = hash_hmac('sha256', $string, $post_vars['shared_secret']);
-
-			echo $hasMac."\n";
-			echo( http_response_code() )."\n";
+			$jsonData[$post_vars['key']] = array("shared_secret" => $post_vars['shared_secret'], "id" => $post_vars['key'], "signature" => $hasMac);
+			file_put_contents($file, json_encode($jsonData));
+			header('Signature: '.$hasMac);
+			header('Estado: Datos validos, por favor utilizar firma.');
+			//echo "Datos validos, Por favor utilizar la siguiente firma (X-Signature) para continuar: ".$hasMac."\n";
+			//http_response_code(204);
+			//echo( http_response_code() )."\n";
 		}
 		
 	}
